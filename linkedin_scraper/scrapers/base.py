@@ -15,6 +15,7 @@ from ..core import (
     handle_modal_close,
     extract_text_safe,
     retry_async,
+    human_click,
 )
 from ..core.exceptions import AuthenticationError, ScrapingError
 
@@ -119,26 +120,27 @@ class BaseScraper:
         return await extract_text_safe(self.page, selector, default, timeout)
     
     @retry_async(max_attempts=3, backoff=2.0, exceptions=(PlaywrightTimeoutError,))
-    async def safe_click(self, selector: str, timeout: float = 5000) -> bool:
+    async def safe_click(self, selector: str, timeout: float = 5000, use_human: bool = True) -> bool:
         """
-        Safely click an element with retry.
+        Safely click an element with retry and optional human-like movement.
         
         Args:
             selector: CSS selector
             timeout: Timeout in milliseconds
+            use_human: Whether to use human-like mouse movement
             
         Returns:
             True if clicked, False if not found
         """
         try:
-            element = self.page.locator(selector).first
-            await element.click(timeout=timeout)
+            if use_human:
+                await human_click(self.page, selector, timeout=timeout)
+            else:
+                element = self.page.locator(selector).first
+                await element.click(timeout=timeout)
             return True
-        except PlaywrightTimeoutError:
-            logger.debug(f"Could not click element: {selector}")
-            return False
-        except Exception as e:
-            logger.warning(f"Error clicking element {selector}: {e}")
+        except (PlaywrightTimeoutError, Exception) as e:
+            logger.debug(f"Could not click element: {selector} - {e}")
             return False
     
     async def wait_for_navigation_complete(self, timeout: float = 30000) -> None:

@@ -13,6 +13,9 @@ class Post(BaseModel):
     image_urls: List[str] = Field(default_factory=list)
     video_url: Optional[str] = None
     article_url: Optional[str] = None
+    author_name: Optional[str] = None
+    author_url: Optional[str] = None
+    external_links: List[str] = Field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump()

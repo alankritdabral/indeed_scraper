@@ -132,11 +132,12 @@ LinkedIn sessions expire after a few hours. If integration tests fail with authe
 # Refresh your session (see README for setup instructions)
 ```
 
-### Browser Detection
-LinkedIn actively blocks headless browsers:
-- Tests run in headed mode (browser window opens)
-- This is expected behavior for LinkedIn scrapers
-- Headless mode will fail on real LinkedIn pages
+### Browser Detection & Stealth
+LinkedIn actively blocks automated browsers, especially in headless mode. 
+- The project now includes `playwright-stealth` and human-like interaction patterns.
+- Tests default to using these stealth features.
+- While headless mode is supported, it is significantly riskier for real scraping. Tests may still pass in headless mode on some systems but fail on others due to advanced fingerprinting.
+- The `BrowserManager` automatically applies evasions to every test context.
 
 ---
 
@@ -204,4 +205,4 @@ When submitting PRs:
 
 ---
 
-**Last Updated:** January 2026
+**Last Updated:** May 2026

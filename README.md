@@ -88,6 +88,7 @@ and you will see the scraping in action.
   - Application links
 
 - **Async/Await** - Modern async Python with Playwright
+- **Stealth Evasion** - Integrated `playwright-stealth` and human-like interaction patterns
 - **Type Safety** - Full Pydantic models for all data
 - **Progress Callbacks** - Track scraping progress
 - **Session Management** - Reuse authenticated sessions
@@ -351,14 +352,14 @@ class Post(BaseModel):
 
 ## Advanced Usage
 
-### Browser Configuration
+### Browser Configuration & Stealth
 
 ```python
 browser = BrowserManager(
-    headless=False,  # Show browser window
-    slow_mo=100,     # Slow down operations (ms)
-    viewport={"width": 1920, "height": 1080},
-    user_agent="Custom User Agent"
+    headless=False,     # Show browser window (Recommended for stealth)
+    slow_mo=100,        # Slow down operations (ms)
+    use_stealth=True,   # Apply playwright-stealth masking (Default: True)
+    # Viewport and User-Agent are automatically randomized if not provided
 )
 ```
 
@@ -381,21 +382,19 @@ except ProfileNotFoundError:
     print("Profile not found or private")
 ```
 
-## Best Practices
+## Best Practices for Detection Evasion
 
-1. **Rate Limiting** - Add delays between requests
-   ```python
-   import asyncio
-   await asyncio.sleep(2)  # 2 second delay
-   ```
+1. **Avoid Headless Mode** - LinkedIn is much more likely to flag headless browsers. For high-value scraping, always use `headless=False`.
 
-2. **Session Reuse** - Save and reuse sessions to avoid frequent logins
+2. **Stealth Mode** - Keep `use_stealth=True` enabled in `BrowserManager`. This applies advanced fingerprint masking and anti-bot evasions.
 
-3. **Error Handling** - Always handle exceptions (rate limits, auth errors, etc.)
+3. **Session Reuse** - Reusing a valid `session.json` is significantly safer than frequent automated logins. Create your session manually once and reuse it.
 
-4. **Headless Mode** - Use `headless=False` during development, `True` for production
+4. **Human-like Interactions** - The library automatically uses non-linear scrolling, random mouse movements, and variable typing speeds. Avoid overriding these unless necessary.
 
-5. **Respect LinkedIn** - Don't scrape aggressively, respect rate limits
+5. **Behavioral Diversity** - Don't just scrape 1000 posts in a row. The scraper now includes random "diversions" (like idle moves or briefly checking the feed) to break repetitive patterns.
+
+6. **Respect Rate Limits** - If you encounter a `RateLimitError`, stop immediately and wait. LinkedIn tracks frequency of aggressive access.
 
 ## Requirements
 

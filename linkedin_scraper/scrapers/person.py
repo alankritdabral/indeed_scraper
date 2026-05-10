@@ -1,6 +1,8 @@
 """Person/Profile scraper for LinkedIn."""
 
 import logging
+import random
+import asyncio
 from typing import Optional
 from urllib.parse import urljoin
 from playwright.async_api import Page
@@ -9,6 +11,7 @@ from .base import BaseScraper
 from ..models import Person, Experience, Education, Accomplishment, Interest, Contact
 from ..callbacks import ProgressCallback, SilentCallback
 from ..core.exceptions import ScrapingError
+from ..core import random_mouse_move
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +75,17 @@ class PersonScraper(BaseScraper):
             # Get experiences
             experiences = await self._get_experiences(linkedin_url)
             await self.callback.on_progress(f"Got {len(experiences)} experiences", 60)
+            
+            # Stealth: random diversion
+            if random.random() < 0.3:
+                await random_mouse_move(self.page)
+                await asyncio.sleep(random.uniform(1, 3))
 
             educations = await self._get_educations(linkedin_url)
             await self.callback.on_progress(f"Got {len(educations)} educations", 50)
+            
+            # Stealth: random pause
+            await asyncio.sleep(random.uniform(2, 5))
 
             interests = await self._get_interests(linkedin_url)
             await self.callback.on_progress(f"Got {len(interests)} interests", 65)
@@ -112,7 +123,19 @@ class PersonScraper(BaseScraper):
     async def _get_name_and_location(self) -> tuple[str, Optional[str]]:
         """Extract name and location from profile."""
         try:
-            name = await self.safe_extract_text("h1", default="Unknown")
+            name = await self.safe_extract_text("h1", default="")
+            
+            # Fallback for obfuscated layouts
+            if not name or name == "Unknown":
+                title = await self.page.title()
+                if " | LinkedIn" in title:
+                    name = title.split(" | LinkedIn")[0]
+                elif " - LinkedIn" in title:
+                    name = title.split(" - LinkedIn")[0]
+            
+            if not name:
+                name = "Unknown"
+
             location = await self.safe_extract_text(
                 ".text-body-small.inline.t-black--light.break-words", default=""
             )
@@ -181,8 +204,15 @@ class PersonScraper(BaseScraper):
                             continue
             
             if not experiences:
-                exp_url = urljoin(base_url, "details/experience")
-                await self.navigate_and_wait(exp_url)
+                # Stealth improvement: Try to find and click "See all" instead of direct URL jumping
+                see_all_selector = 'section#experience-section a[href*="details/experience"], a[href*="details/experience"]'
+                clicked = await self.safe_click(see_all_selector, timeout=3000)
+                
+                if not clicked:
+                    logger.debug("'See all' experiences not found/clickable, falling back to direct URL")
+                    exp_url = urljoin(base_url, "details/experience")
+                    await self.navigate_and_wait(exp_url)
+                
                 await self.page.wait_for_selector("main", timeout=10000)
                 await self.wait_and_focus(1.5)
                 await self.scroll_page_to_half()
@@ -543,8 +573,15 @@ class PersonScraper(BaseScraper):
                             continue
             
             if not educations:
-                edu_url = urljoin(base_url, "details/education")
-                await self.navigate_and_wait(edu_url)
+                # Stealth improvement: Try to find and click "See all" instead of direct URL jumping
+                see_all_selector = 'section#education-section a[href*="details/education"], a[href*="details/education"]'
+                clicked = await self.safe_click(see_all_selector, timeout=3000)
+                
+                if not clicked:
+                    logger.debug("'See all' education not found/clickable, falling back to direct URL")
+                    edu_url = urljoin(base_url, "details/education")
+                    await self.navigate_and_wait(edu_url)
+                
                 await self.page.wait_for_selector("main", timeout=10000)
                 await self.wait_and_focus(2)
                 await self.scroll_page_to_half()

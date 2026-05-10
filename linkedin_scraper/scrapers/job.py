@@ -100,25 +100,47 @@ class JobScraper(BaseScraper):
         return job
     
     async def _get_job_title(self) -> Optional[str]:
-        """Extract job title from h1 heading."""
+        """Extract job title from h1 heading or top card."""
         try:
+            # Standard h1
             title_elem = self.page.locator('h1').first
-            await title_elem.wait_for(timeout=5000)
-            title = await title_elem.inner_text()
-            return title.strip()
+            if await title_elem.count() > 0:
+                title = await title_elem.inner_text(timeout=2000)
+                if title and title.strip():
+                    return title.strip()
+            
+            # Alternative: top card title
+            top_card_title = self.page.locator('.job-details-jobs-unified-top-card__job-title').first
+            if await top_card_title.count() > 0:
+                title = await top_card_title.inner_text(timeout=2000)
+                if title and title.strip():
+                    return title.strip()
+            
+            # Fallback to page title
+            page_title = await self.page.title()
+            if " | LinkedIn" in page_title:
+                return page_title.split(" | LinkedIn")[0].strip()
         except:
-            return None
+            pass
+        return None
     
     async def _get_company(self) -> Optional[str]:
         """Extract company name from company link."""
         try:
+            # Specific top card link
+            top_card_link = self.page.locator('.job-details-jobs-unified-top-card__company-name a').first
+            if await top_card_link.count() > 0:
+                text = await top_card_link.inner_text()
+                if text and text.strip():
+                    return text.strip()
+
             # Find company links that have text (not just images)
             company_links = await self.page.locator('a[href*="/company/"]').all()
             for link in company_links:
                 text = await link.inner_text()
                 text = text.strip()
                 # Skip empty or very short text (likely image-only links)
-                if text and len(text) > 1 and not text.startswith('logo'):
+                if text and len(text) > 1 and not text.lower().startswith('logo'):
                     return text
         except:
             pass
@@ -127,45 +149,47 @@ class JobScraper(BaseScraper):
     async def _get_company_url(self) -> Optional[str]:
         """Extract company LinkedIn URL."""
         try:
+            # Specific top card link
+            top_card_link = self.page.locator('.job-details-jobs-unified-top-card__company-name a').first
+            if await top_card_link.count() > 0:
+                href = await top_card_link.get_attribute('href')
+                if href:
+                    return self._clean_url(href)
+
             company_link = self.page.locator('a[href*="/company/"]').first
             if await company_link.count() > 0:
                 href = await company_link.get_attribute('href')
                 if href:
-                    if '?' in href:
-                        href = href.split('?')[0]
-                    if not href.startswith('http'):
-                        href = f"https://www.linkedin.com{href}"
-                    return href
+                    return self._clean_url(href)
         except:
             pass
         return None
+
+    def _clean_url(self, url: str) -> str:
+        """Clean and normalize URL."""
+        if '?' in url:
+            url = url.split('?')[0]
+        if not url.startswith('http'):
+            url = f"https://www.linkedin.com{url}"
+        return url
     
     async def _get_location(self) -> Optional[str]:
         """Extract job location from job details panel."""
         try:
+            # Standard unified top card
             container = self.page.locator('.job-details-jobs-unified-top-card__primary-description-container').first
             if await container.count() > 0:
                 text = await container.inner_text()
                 parts = text.split('·')
                 if parts:
                     return parts[0].strip().split('\n')[0].strip()
-        except:
-            pass
             
-        try:
-            job_panel = self.page.locator('h1').first.locator('xpath=ancestor::*[5]')
-            if await job_panel.count() > 0:
-                text_elements = await job_panel.locator('span, div').all()
-                for elem in text_elements:
-                    text = await elem.inner_text()
-                    if text and (',' in text or 'Remote' in text or 'United States' in text):
-                        text = text.strip()
-                        # Avoid matching the job title if it contains a comma
-                        title = await self._get_job_title()
-                        if title and text == title:
-                            continue
-                        if len(text) > 3 and len(text) < 100 and not text.startswith('$'):
-                            return text
+            # Bullet point style
+            bullet_items = await self.page.locator('.job-details-jobs-unified-top-card__job-insight span').all()
+            for item in bullet_items:
+                text = await item.inner_text()
+                if ',' in text or 'Remote' in text or 'United States' in text:
+                    return text.strip()
         except:
             pass
         return None

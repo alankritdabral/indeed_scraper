@@ -9,7 +9,7 @@ from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from dotenv import load_dotenv
 
 from .exceptions import AuthenticationError
-from .utils import detect_rate_limit
+from .utils import detect_rate_limit, human_type, human_click
 
 logger = logging.getLogger(__name__)
 
@@ -117,14 +117,14 @@ async def login_with_credentials(
                 "or the site is experiencing issues."
             )
         
-        # Fill in credentials
-        await page.fill('#username', email)
-        await page.fill('#password', password)
+        # Fill in credentials with human-like cadence
+        await human_type(page, '#username', email)
+        await human_type(page, '#password', password)
         
         logger.debug("Credentials entered")
         
-        # Click sign in button
-        await page.click('button[type="submit"]')
+        # Click sign in button with physical mouse movement
+        await human_click(page, 'button[type="submit"]')
         
         # Wait for navigation
         try:

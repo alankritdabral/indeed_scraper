@@ -3,9 +3,11 @@
 import asyncio
 import json
 import logging
+import random
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
+from playwright_stealth import Stealth
 
 from .exceptions import NetworkError
 
@@ -21,6 +23,7 @@ class BrowserManager:
         slow_mo: int = 0,
         viewport: Optional[Dict[str, int]] = None,
         user_agent: Optional[str] = None,
+        use_stealth: bool = True,
         **launch_options: Any
     ):
         """
@@ -29,14 +32,21 @@ class BrowserManager:
         Args:
             headless: Run browser in headless mode
             slow_mo: Slow down operations by specified milliseconds
-            viewport: Browser viewport size (default: 1280x720)
-            user_agent: Custom user agent string
+            viewport: Browser viewport size (default: randomized if None)
+            user_agent: Custom user agent string (default: randomized if None)
+            use_stealth: Whether to use playwright-stealth
             **launch_options: Additional Playwright launch options
         """
         self.headless = headless
         self.slow_mo = slow_mo
-        self.viewport = viewport or {"width": 1280, "height": 720}
-        self.user_agent = user_agent
+        self.use_stealth = use_stealth
+        
+        # Randomize viewport if not provided
+        self.viewport = viewport or self._get_random_viewport()
+        
+        # Randomize user agent if not provided
+        self.user_agent = user_agent or self._get_random_user_agent()
+        
         self.launch_options = launch_options
         
         self._playwright: Optional[Playwright] = None
@@ -44,6 +54,29 @@ class BrowserManager:
         self._context: Optional[BrowserContext] = None
         self._page: Optional[Page] = None
         self._is_authenticated = False
+
+    def _get_random_user_agent(self) -> str:
+        """Get a random modern user agent."""
+        user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15",
+        ]
+        return random.choice(user_agents)
+
+    def _get_random_viewport(self) -> Dict[str, int]:
+        """Get a random common viewport size."""
+        viewports = [
+            {"width": 1920, "height": 1080},
+            {"width": 1440, "height": 900},
+            {"width": 1366, "height": 768},
+            {"width": 1280, "height": 800},
+            {"width": 1280, "height": 720},
+        ]
+        return random.choice(viewports)
     
     async def __aenter__(self) -> "BrowserManager":
         """Start browser and create context."""
@@ -66,22 +99,27 @@ class BrowserManager:
                 **self.launch_options
             )
             
-            logger.info(f"Browser launched (headless={self.headless})")
+            logger.info(f"Browser launched (headless={self.headless}, viewport={self.viewport})")
             
-            # Create context
+            # Create context with randomized fingerprinting options
             context_options: Dict[str, Any] = {
                 "viewport": self.viewport,
+                "user_agent": self.user_agent,
+                "device_scale_factor": random.choice([1, 2]),
+                "has_touch": random.choice([True, False]),
+                "locale": random.choice(["en-US", "en-GB"]),
+                "timezone_id": random.choice(["America/New_York", "Europe/London", "UTC"]),
             }
-            
-            if self.user_agent:
-                context_options["user_agent"] = self.user_agent
             
             self._context = await self._browser.new_context(**context_options)
             
             # Create initial page
             self._page = await self._context.new_page()
             
-            logger.info("Browser context and page created")
+            if self.use_stealth:
+                await Stealth().apply_stealth_async(self._page)
+            
+            logger.info("Browser context and page created with stealth applied")
             
         except Exception as e:
             await self.close()
@@ -122,6 +160,8 @@ class BrowserManager:
             raise RuntimeError("Browser context not initialized. Call start() first.")
         
         page = await self._context.new_page()
+        if self.use_stealth:
+            await Stealth().apply_stealth_async(page)
         return page
     
     @property
@@ -197,10 +237,15 @@ class BrowserManager:
         if not self._browser:
             raise RuntimeError("Browser not started")
         
+        # Merge session with randomized device signals to avoid "teleportation" detection
         self._context = await self._browser.new_context(
             storage_state=filepath,
             viewport=self.viewport,
-            user_agent=self.user_agent
+            user_agent=self.user_agent,
+            device_scale_factor=random.choice([1, 2]),
+            has_touch=random.choice([True, False]),
+            locale=random.choice(["en-US", "en-GB"]),
+            timezone_id=random.choice(["America/New_York", "Europe/London", "UTC"]),
         )
         
         # Create new page
@@ -208,9 +253,12 @@ class BrowserManager:
             await self._page.close()
         self._page = await self._context.new_page()
         
+        if self.use_stealth:
+            await Stealth().apply_stealth_async(self._page)
+        
         self._is_authenticated = True
         
-        logger.info(f"Session loaded from {filepath}")
+        logger.info(f"Session loaded from {filepath} with stealth and randomized context")
     
     async def set_cookie(self, name: str, value: str, domain: str = ".linkedin.com") -> None:
         """
