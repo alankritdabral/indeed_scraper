@@ -1,4 +1,5 @@
 scrapling[all]
+click
 playwright
 pandas
 pymongo[srv]
