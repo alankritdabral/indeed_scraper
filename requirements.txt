@@ -1,4 +1,5 @@
-scrapling
+scrapling[all]
+browserforge
 curl_cffi
 click
 playwright
