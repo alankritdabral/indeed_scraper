@@ -1,0 +1,48 @@
+name: Parallel Indeed Scraper
+
+on:
+  schedule:
+    # Runs every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  scrape-jobs:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - category: "web development"
+          - category: "Artificial Intelligence"
+          - category: "automation"
+          - category: "web"
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Scraper
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+        run: |
+          python tri_proxy_scraper.py \
+            --query "${{ matrix.category }}" \
+            --location "India" \
+            --domain "in" \
+            --days 7 \
+            --once \
+            --p-search "${{ secrets.PROXY_SEARCH }}" \
+            --p-read-1 "${{ secrets.PROXY_READ_1 }}" \
+            --p-read-2 "${{ secrets.PROXY_READ_2 }}"

@@ -1,423 +1,77 @@
-# LinkedIn Scraper
+# Indeed Job Scraper Suite
 
-[![PyPI version](https://badge.fury.io/py/linkedin-scraper.svg)](https://badge.fury.io/py/linkedin-scraper)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+A powerful, multi-engine scraping solution designed to bypass Indeed's anti-bot protections, login walls, and pagination limits.
 
-Async LinkedIn scraper built with Playwright for extracting profile, company, and job data from LinkedIn.
+## 🚀 Four Scraping Strategies
 
-## ⚠️ Breaking Changes in v3.0.0
+### 1. Headed App Scraper (`indeed_headed_app_scraper.py`)
+**Optimized for: Bypassing login walls while maintaining visibility.**
+- **How it works:** Combines the "App View" bypass with a visible browser.
+- **Why use it:** Use this if Indeed blocks your headless scrapers with a login wall. It uses mobile app parameters to stay unrestricted.
 
-**Version 3.0.0 introduces breaking changes and is NOT backwards compatible with previous versions.**
+### 2. Stealth Scraper (`indeed_stealth_scraper.py`)
+**Optimized for: High-volume, high-speed background scraping.**
+- **How it works:** Mimics the Indeed Android App (Mobile App Bypass) in a headless environment.
+- **Speed:** Supports concurrent workers for detail extraction.
 
-### What Changed:
-- **Playwright instead of Selenium** - Complete rewrite using Playwright for better performance and reliability
-- **Async/await throughout** - All methods are now async and require `await`
-- **New package structure** - Imports have changed (e.g., `from linkedin_scraper import PersonScraper`)
-- **Updated data models** - Using Pydantic models instead of simple objects
-- **Different API** - Method signatures and return types have changed
+### 3. Distributed Scraper (`indeed_distributed_scraper.py`)
+**Optimized for: Extreme scale and high-volume data collection.**
+- **How it works:** Spawns multiple parallel "Sessions", each with its own identity and cookies.
+- **Parallel Pagination:** Scrapes multiple pages (e.g., 1, 5, 10) simultaneously.
 
-### Migration Guide:
-
-**Before (v2.x with Selenium):**
-```python
-from linkedin_scraper import Person
-
-person = Person("https://linkedin.com/in/username", driver=driver)
-print(person.name)
-```
-
-**After (v3.0+ with Playwright):**
-```python
-import asyncio
-from linkedin_scraper import BrowserManager, PersonScraper
-
-async def main():
-    async with BrowserManager() as browser:
-        await browser.load_session("session.json")
-        scraper = PersonScraper(browser.page)
-        person = await scraper.scrape("https://linkedin.com/in/username")
-        print(person.name)
-
-asyncio.run(main())
-```
-
-**If you need the old Selenium-based version:**
-```bash
-pip install linkedin-scraper==2.11.2
-```
-## Quick Testing
-
-To test that this works, you can clone this repo, install dependencies with
-```
-git clone https://github.com/joeyism/linkedin_scraper.git
-cd linkedin_scraper
-pip3 install -e .
-```
-then run
-```
-python3 samples/create_session.py
-python3 samples/scrape_company.py
-python3 samples/scrape_person.py
-```
-and you will see the scraping in action.
+### 4. Click-Based Scraper (`indeed_click_scraper.py`)
+**Optimized for: Desktop view mimicry.**
+- **How it works:** Mimics a desktop user by clicking job cards on the split-view layout.
 
 ---
 
-## Features
+## 🛠️ Installation
 
-- **Person Profiles** - Scrape comprehensive profile information
-  - Basic info (name, headline, location, about)
-  - Work experience with details
-  - Education history
-  - Skills and accomplishments
-  
-- **Company Pages** - Extract company information
-  - Company overview and details
-  - Industry and size
-  - Headquarters location
-  
-- **Company Posts** - Scrape posts from company pages
-  - Post content and text
-  - Reactions, comments, reposts counts
-  - Posted date and images
-  
-- **Job Listings** - Scrape job postings
-  - Job details and requirements
-  - Company information
-  - Application links
+1. **Clone and Install:**
+   ```bash
+   pip install -r requirements.txt
+   playwright install chromium
+   ```
 
-- **Async/Await** - Modern async Python with Playwright
-- **Stealth Evasion** - Integrated `playwright-stealth` and human-like interaction patterns
-- **Type Safety** - Full Pydantic models for all data
-- **Progress Callbacks** - Track scraping progress
-- **Session Management** - Reuse authenticated sessions
+---
 
-## Installation
+## 💻 Usage
 
+### Headed App Scraper (Best for Bypassing Login Walls)
 ```bash
-pip install linkedin-scraper
+# Scrape 20 jobs using the mobile app view in a visible browser
+python3 indeed_headed_app_scraper.py -q "Software Engineer" -l "Remote" -n 20
 ```
 
-### Install Playwright browsers:
-
+### Distributed Scraper (Maximum Performance)
 ```bash
-playwright install chromium
+# Scrape 20 pages using 4 parallel sessions (5 pages per session)
+python3 indeed_distributed_scraper.py -q "Software Engineer" -p 20 -s 4
 ```
 
-## Quick Start
-
-### Basic Usage
-
-```python
-import asyncio
-from linkedin_scraper import BrowserManager, PersonScraper
-
-async def main():
-    # Initialize browser
-    async with BrowserManager(headless=False) as browser:
-        # Load authenticated session
-        await browser.load_session("session.json")
-        
-        # Create scraper
-        scraper = PersonScraper(browser.page)
-        
-        # Scrape a profile
-        person = await scraper.scrape("https://linkedin.com/in/williamhgates/")
-        
-        # Access data
-        print(f"Name: {person.name}")
-        print(f"Headline: {person.headline}")
-        print(f"Location: {person.location}")
-        print(f"Experiences: {len(person.experiences)}")
-        print(f"Education: {len(person.educations)}")
-
-asyncio.run(main())
+### Stealth Scraper (High Speed Headless)
+```bash
+# Scrape 100 jobs using 10 parallel workers
+python3 indeed_stealth_scraper.py -q "Python Developer" -n 100 -w 10
 ```
 
-### Company Scraping
+---
 
-```python
-from linkedin_scraper import CompanyScraper
+## 📊 Data Extracted
+Both scrapers provide structured JSON data including:
+- **`title`**, **`company`**, **`location`**, **`posted_date`**, **`description`**, **`apply_url`**, **`url`**, **`jk`**.
 
-async def scrape_company():
-    async with BrowserManager(headless=False) as browser:
-        await browser.load_session("session.json")
-        
-        scraper = CompanyScraper(browser.page)
-        company = await scraper.scrape("https://linkedin.com/company/microsoft/")
-        
-        print(f"Company: {company.name}")
-        print(f"Industry: {company.industry}")
-        print(f"Size: {company.company_size}")
-        print(f"About: {company.about_us[:200]}...")
+---
 
-asyncio.run(scrape_company())
-```
+## 📂 Project Structure
+- `indeed_headed_app_scraper.py`: Hybrid tool using mobile app view in a headed browser (Best for login bypass).
+- `indeed_distributed_scraper.py`: Power tool for multi-session, proxy-enabled scraping.
+- `indeed_stealth_scraper.py`: Background tool for standard high-volume scraping.
+- `indeed_click_scraper.py`: Interactive tool for desktop-view extraction.
+- `SCRAPING_SUMMARY.md`: Technical documentation on bypass strategies.
 
-### Job Scraping
+## ⚠️ Disclaimer
+This tool is for educational purposes only. Always respect Indeed's `robots.txt` and Terms of Service.
 
-```python
-from linkedin_scraper import JobSearchScraper
-
-async def search_jobs():
-    async with BrowserManager(headless=False) as browser:
-        await browser.load_session("session.json")
-        
-        scraper = JobSearchScraper(browser.page)
-        jobs = await scraper.search(
-            keywords="Python Developer",
-            location="San Francisco",
-            limit=10
-        )
-        
-        for job in jobs:
-            print(f"{job.title} at {job.company}")
-            print(f"Location: {job.location}")
-            print(f"Link: {job.linkedin_url}")
-            print("---")
-
-asyncio.run(search_jobs())
-```
-
-### Company Posts Scraping
-
-```python
-from linkedin_scraper import BrowserManager, CompanyPostsScraper
-
-async def scrape_company_posts():
-    async with BrowserManager(headless=False) as browser:
-        await browser.load_session("session.json")
-        
-        scraper = CompanyPostsScraper(browser.page)
-        posts = await scraper.scrape(
-            "https://linkedin.com/company/microsoft/",
-            limit=10
-        )
-        
-        for post in posts:
-            print(f"Posted: {post.posted_date}")
-            print(f"Text: {post.text[:200]}...")
-            print(f"Reactions: {post.reactions_count}")
-            print(f"Comments: {post.comments_count}")
-            print(f"URL: {post.linkedin_url}")
-            print("---")
-
-asyncio.run(scrape_company_posts())
-```
-
-## Authentication
-
-LinkedIn requires authentication. You need to create a session file first:
-
-### Option 1: Manual Login Script
-
-```python
-from linkedin_scraper import BrowserManager, wait_for_manual_login
-
-async def create_session():
-    async with BrowserManager(headless=False) as browser:
-        # Navigate to LinkedIn
-        await browser.page.goto("https://www.linkedin.com/login")
-        
-        # Wait for manual login (opens browser)
-        print("Please log in to LinkedIn...")
-        await wait_for_manual_login(browser.page, timeout=300)
-        
-        # Save session
-        await browser.save_session("session.json")
-        print("✓ Session saved!")
-
-asyncio.run(create_session())
-```
-
-### Option 2: Programmatic Login
-
-```python
-from linkedin_scraper import BrowserManager, login_with_credentials
-import os
-
-async def login():
-    async with BrowserManager(headless=False) as browser:
-        # Login with credentials
-        await login_with_credentials(
-            browser.page,
-            username=os.getenv("LINKEDIN_EMAIL"),
-            password=os.getenv("LINKEDIN_PASSWORD")
-        )
-        
-        # Save session for reuse
-        await browser.save_session("session.json")
-
-asyncio.run(login())
-```
-
-## Progress Tracking
-
-Track scraping progress with callbacks:
-
-```python
-from linkedin_scraper import ConsoleCallback, PersonScraper
-
-async def scrape_with_progress():
-    callback = ConsoleCallback()  # Prints progress to console
-    
-    async with BrowserManager(headless=False) as browser:
-        await browser.load_session("session.json")
-        
-        scraper = PersonScraper(browser.page, callback=callback)
-        person = await scraper.scrape("https://linkedin.com/in/williamhgates/")
-
-asyncio.run(scrape_with_progress())
-```
-
-### Custom Callbacks
-
-```python
-from linkedin_scraper import ProgressCallback
-
-class MyCallback(ProgressCallback):
-    async def on_start(self, scraper_type: str, url: str):
-        print(f"Starting {scraper_type} scraping: {url}")
-    
-    async def on_progress(self, message: str, percent: int):
-        print(f"[{percent}%] {message}")
-    
-    async def on_complete(self, scraper_type: str, url: str):
-        print(f"Completed {scraper_type}: {url}")
-    
-    async def on_error(self, error: Exception):
-        print(f"Error: {error}")
-```
-
-## Data Models
-
-All scraped data is returned as Pydantic models:
-
-### Person
-
-```python
-class Person(BaseModel):
-    name: str
-    headline: Optional[str]
-    location: Optional[str]
-    about: Optional[str]
-    linkedin_url: str
-    experiences: List[Experience]
-    educations: List[Education]
-    skills: List[str]
-    accomplishments: Optional[Accomplishment]
-```
-
-### Company
-
-```python
-class Company(BaseModel):
-    name: str
-    industry: Optional[str]
-    company_size: Optional[str]
-    headquarters: Optional[str]
-    founded: Optional[str]
-    specialties: List[str]
-    about: Optional[str]
-    linkedin_url: str
-```
-
-### Job
-
-```python
-class Job(BaseModel):
-    title: str
-    company: str
-    location: Optional[str]
-    description: Optional[str]
-    employment_type: Optional[str]
-    seniority_level: Optional[str]
-    linkedin_url: str
-```
-
-### Post
-
-```python
-class Post(BaseModel):
-    linkedin_url: Optional[str]
-    urn: Optional[str]
-    text: Optional[str]
-    posted_date: Optional[str]
-    reactions_count: Optional[int]
-    comments_count: Optional[int]
-    reposts_count: Optional[int]
-    image_urls: List[str]
-```
-
-## Advanced Usage
-
-### Browser Configuration & Stealth
-
-```python
-browser = BrowserManager(
-    headless=False,     # Show browser window (Recommended for stealth)
-    slow_mo=100,        # Slow down operations (ms)
-    use_stealth=True,   # Apply playwright-stealth masking (Default: True)
-    # Viewport and User-Agent are automatically randomized if not provided
-)
-```
-
-### Error Handling
-
-```python
-from linkedin_scraper import (
-    AuthenticationError,
-    RateLimitError,
-    ProfileNotFoundError
-)
-
-try:
-    person = await scraper.scrape(url)
-except AuthenticationError:
-    print("Not logged in - session expired")
-except RateLimitError:
-    print("Rate limited by LinkedIn")
-except ProfileNotFoundError:
-    print("Profile not found or private")
-```
-
-## Best Practices for Detection Evasion
-
-1. **Avoid Headless Mode** - LinkedIn is much more likely to flag headless browsers. For high-value scraping, always use `headless=False`.
-
-2. **Stealth Mode** - Keep `use_stealth=True` enabled in `BrowserManager`. This applies advanced fingerprint masking and anti-bot evasions.
-
-3. **Session Reuse** - Reusing a valid `session.json` is significantly safer than frequent automated logins. Create your session manually once and reuse it.
-
-4. **Human-like Interactions** - The library automatically uses non-linear scrolling, random mouse movements, and variable typing speeds. Avoid overriding these unless necessary.
-
-5. **Behavioral Diversity** - Don't just scrape 1000 posts in a row. The scraper now includes random "diversions" (like idle moves or briefly checking the feed) to break repetitive patterns.
-
-6. **Respect Rate Limits** - If you encounter a `RateLimitError`, stop immediately and wait. LinkedIn tracks frequency of aggressive access.
-
-## Requirements
-
-- Python 3.8+
-- Playwright
-- Pydantic 2.0+
-- aiofiles
-- python-dotenv (optional, for credentials)
-
-## License
-
-Apache License 2.0 - see [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Disclaimer
-
-This tool is for educational purposes only. Make sure to comply with LinkedIn's Terms of Service and use responsibly. The authors are not responsible for any misuse of this tool.
-
-## Links
-
-- [GitHub Repository](https://github.com/joeyism/linkedin_scraper)
-- [Issue Tracker](https://github.com/joeyism/linkedin_scraper/issues)
-- [PyPI Package](https://pypi.org/project/linkedin-scraper/)
+---
+*Maintained by Gemini CLI - May 2026*
