@@ -31,27 +31,17 @@ class TriProxyIndeedScraper:
         # Ensure index exists
         self.jobs.create_index("jk", unique=True)
 
-        # 2. Initialize Engines with dedicated proxies and stable impersonation
-        print(f"🔄 Initializing Engines with dedicated proxies...")
+        # 2. Store proxy configurations
+        self.p_search = p_search
+        self.p_read1 = p_read1
+        self.p_read2 = p_read2
+        self.p_readers = [p for p in [p_read1, p_read2] if p]
         
-        # We use 'chrome124' impersonation which is very stable for Indeed
-        # Passing proxy to constructor, and using configure for impersonation as per warning
-        self.search_engine = Fetcher(proxy=p_search) if p_search else Fetcher()
-        self.search_engine.configure(impersonate="chrome124")
-        if p_search: 
-            print(f"  📡 Searcher Proxy: {p_search}")
-        
-        self.reader_1 = Fetcher(proxy=p_read1) if p_read1 else Fetcher()
-        self.reader_1.configure(impersonate="chrome124")
-        if p_read1: 
-            print(f"  📖 Reader 1 Proxy: {p_read1}")
-        
-        self.reader_2 = Fetcher(proxy=p_read2) if p_read2 else Fetcher()
-        self.reader_2.configure(impersonate="chrome124")
-        if p_read2: 
-            print(f"  📖 Reader 2 Proxy: {p_read2}")
-        
-        self.readers = [self.reader_1, self.reader_2]
+        print(f"🔄 Proxy Configuration:")
+        if p_search: print(f"  📡 Searcher Proxy: {p_search}")
+        if p_read1:  print(f"  📖 Reader 1 Proxy: {p_read1}")
+        if p_read2:  print(f"  📖 Reader 2 Proxy: {p_read2}")
+
         self.headers = {
             "User-Agent": "IndeedApp/1.0 (Android; 10; SM-G973F)",
             "X-Requested-With": "com.indeed.android.jobsearch",
@@ -59,18 +49,18 @@ class TriProxyIndeedScraper:
         }
 
     def warmup(self):
-        """Establishing session cookies for all three proxies."""
-        print("🔥 Warming up sessions...")
-        for i, engine in enumerate([self.search_engine, self.reader_1, self.reader_2]):
+        """Establishing session cookies (if needed) by visiting home."""
+        print("🔥 Warming up proxies...")
+        proxies_to_warm = [self.p_search] + self.p_readers
+        for i, proxy in enumerate(proxies_to_warm):
             try:
-                # Visit mobile home to establish session
-                engine.get(f"{self.base_url}/m/", headers=self.headers)
-                print(f"  ✅ Engine {i+1} Session Established.")
+                Fetcher.get(f"{self.base_url}/m/", headers=self.headers, proxy=proxy, impersonate="chrome124")
+                print(f"  ✅ Proxy {i+1} Ready.")
             except Exception as e:
-                print(f"  ⚠️ Engine {i+1} Warmup Failed: {e}")
+                print(f"  ⚠️ Proxy {i+1} Warmup Failed: {e}")
         time.sleep(2)
 
-    def get_detailed_job(self, job_basic, reader_engine):
+    def get_detailed_job(self, job_basic, proxy):
         """Reader Proxy visits the job detail page."""
         jk = job_basic['jk']
         url = f"{self.base_url}/m/viewjob?jk={jk}"
@@ -81,7 +71,7 @@ class TriProxyIndeedScraper:
         try:
             # Human-like delay before hitting detail page
             time.sleep(random.uniform(2, 5))
-            response = reader_engine.get(url, headers=self.headers)
+            response = Fetcher.get(url, headers=self.headers, proxy=proxy, impersonate="chrome124")
             
             # Extract Description
             for sel in ['#jobDescriptionText', '.jobsearch-JobComponent-description', '.jobsearch-jobDescriptionText']:
@@ -119,7 +109,7 @@ class TriProxyIndeedScraper:
                 
                 try:
                     # Proxy A (Searcher) fetches the list
-                    response = self.search_engine.get(url, headers=self.headers)
+                    response = Fetcher.get(url, headers=self.headers, proxy=self.p_search, impersonate="chrome124")
                     job_els = response.css('div[data-jk]') or response.css('.job_seen_beacon')
                     
                     if not job_els:
@@ -166,13 +156,13 @@ class TriProxyIndeedScraper:
                     else:
                         print(f"   [Page {page+1}] Found {len(new_jobs)} NEW jobs. Distributing to Reader Proxies...")
                         
-                        # 3. CONCURRENT EXTRACTION (Using Proxy B and Proxy C)
+                        # 3. CONCURRENT EXTRACTION (Using Reader Proxies)
                         with ThreadPoolExecutor(max_workers=2) as executor:
                             futures = []
                             for i, job in enumerate(new_jobs):
                                 # Alternate between Reader 1 (Proxy B) and Reader 2 (Proxy C)
-                                engine = self.readers[i % 2]
-                                futures.append(executor.submit(self.get_detailed_job, job, engine))
+                                proxy = self.p_readers[i % len(self.p_readers)] if self.p_readers else None
+                                futures.append(executor.submit(self.get_detailed_job, job, proxy))
                             
                             final_jobs = [f.result() for f in as_completed(futures)]
                             
