@@ -1,5 +1,6 @@
 scrapling
 curl_cffi
+click
 playwright
 pandas
 pymongo[srv]
