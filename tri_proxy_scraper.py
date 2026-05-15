@@ -35,21 +35,20 @@ class TriProxyIndeedScraper:
         print(f"🔄 Initializing Engines with dedicated proxies...")
         
         # We use 'chrome124' impersonation which is very stable for Indeed
-        fetcher_kwargs = {"impersonate": "chrome124"}
-
-        self.search_engine = Fetcher(**fetcher_kwargs)
+        # Passing proxy to constructor, and using configure for impersonation as per warning
+        self.search_engine = Fetcher(proxy=p_search) if p_search else Fetcher()
+        self.search_engine.configure(impersonate="chrome124")
         if p_search: 
-            self.search_engine.configure(proxy=p_search)
             print(f"  📡 Searcher Proxy: {p_search}")
         
-        self.reader_1 = Fetcher(**fetcher_kwargs)
+        self.reader_1 = Fetcher(proxy=p_read1) if p_read1 else Fetcher()
+        self.reader_1.configure(impersonate="chrome124")
         if p_read1: 
-            self.reader_1.configure(proxy=p_read1)
             print(f"  📖 Reader 1 Proxy: {p_read1}")
         
-        self.reader_2 = Fetcher(**fetcher_kwargs)
+        self.reader_2 = Fetcher(proxy=p_read2) if p_read2 else Fetcher()
+        self.reader_2.configure(impersonate="chrome124")
         if p_read2: 
-            self.reader_2.configure(proxy=p_read2)
             print(f"  📖 Reader 2 Proxy: {p_read2}")
         
         self.readers = [self.reader_1, self.reader_2]
