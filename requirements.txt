@@ -1,7 +1,5 @@
-scrapling
-curl_cffi
+scrapling[all]
 playwright
-click
 pandas
 pymongo[srv]
 python-dotenv
