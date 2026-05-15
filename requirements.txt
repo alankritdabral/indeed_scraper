@@ -1,6 +1,7 @@
 scrapling
 curl_cffi
 playwright
+click
 pandas
 pymongo[srv]
 python-dotenv
