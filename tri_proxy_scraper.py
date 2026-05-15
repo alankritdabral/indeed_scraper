@@ -219,6 +219,11 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    # Fallback to Environment Variables if CLI args are missing
+    p_search = args.p_search or os.getenv("PROXY_SEARCH")
+    p_read_1 = args.p_read_1 or os.getenv("PROXY_READ_1")
+    p_read_2 = args.p_read_2 or os.getenv("PROXY_READ_2")
+
     # Verify MONGO_URI
     if not MONGO_URI:
         print("❌ Error: MONGO_URI not found. Please set it in your .env file.")
@@ -228,9 +233,9 @@ if __name__ == "__main__":
         query=args.query, 
         location=args.location, 
         domain=args.domain, 
-        p_search=args.p_search, 
-        p_read1=args.p_read_1, 
-        p_read2=args.p_read_2,
+        p_search=p_search, 
+        p_read1=p_read_1, 
+        p_read2=p_read_2,
         days=args.days
     )
     

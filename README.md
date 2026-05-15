@@ -14,12 +14,17 @@ A powerful, multi-engine scraping solution designed to bypass Indeed's anti-bot 
 - **How it works:** Mimics the Indeed Android App (Mobile App Bypass) in a headless environment.
 - **Speed:** Supports concurrent workers for detail extraction.
 
-### 3. Distributed Scraper (`indeed_distributed_scraper.py`)
+### 3. Tri-Proxy Scraper (`tri_proxy_scraper.py`)
+**Optimized for: Maximum stealth and distributed load.**
+- **How it works:** Uses a three-proxy architecture. Proxy A handles pagination (Searcher), while Proxies B & C handle job detail extraction (Readers).
+- **Benefit:** Decouples search from reading to minimize IP footprint and avoid bans.
+
+### 4. Distributed Scraper (`indeed_distributed_scraper.py`)
 **Optimized for: Extreme scale and high-volume data collection.**
 - **How it works:** Spawns multiple parallel "Sessions", each with its own identity and cookies.
 - **Parallel Pagination:** Scrapes multiple pages (e.g., 1, 5, 10) simultaneously.
 
-### 4. Click-Based Scraper (`indeed_click_scraper.py`)
+### 5. Click-Based Scraper (`indeed_click_scraper.py`)
 **Optimized for: Desktop view mimicry.**
 - **How it works:** Mimics a desktop user by clicking job cards on the split-view layout.
 
@@ -31,11 +36,23 @@ A powerful, multi-engine scraping solution designed to bypass Indeed's anti-bot 
    ```bash
    pip install -r requirements.txt
    playwright install chromium
+   scrapling install
    ```
 
 ---
 
 ## 💻 Usage
+
+### Tri-Proxy Scraper (Maximum Stealth)
+```bash
+python3 tri_proxy_scraper.py \
+  --query "Software Engineer" \
+  --location "Remote" \
+  --domain "in" \
+  --p-search "http://user:pass@proxy-a.com" \
+  --p-read-1 "http://user:pass@proxy-b.com" \
+  --p-read-2 "http://user:pass@proxy-c.com"
+```
 
 ### Headed App Scraper (Best for Bypassing Login Walls)
 ```bash
