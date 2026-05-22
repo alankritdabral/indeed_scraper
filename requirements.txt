@@ -1,8 +1,4 @@
-scrapling[all]
-browserforge
-curl_cffi
-click
+scrapling
 playwright
-pandas
-pymongo[srv]
-python-dotenv
+patchright
+sqlite3

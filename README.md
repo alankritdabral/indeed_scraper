@@ -1,94 +1,114 @@
-# Indeed Job Scraper Suite
+# 🚀 Indeed Job Automation Suite
 
-A powerful, multi-engine scraping solution designed to bypass Indeed's anti-bot protections, login walls, and pagination limits.
-
-## 🚀 Four Scraping Strategies
-
-### 1. Headed App Scraper (`indeed_headed_app_scraper.py`)
-**Optimized for: Bypassing login walls while maintaining visibility.**
-- **How it works:** Combines the "App View" bypass with a visible browser.
-- **Why use it:** Use this if Indeed blocks your headless scrapers with a login wall. It uses mobile app parameters to stay unrestricted.
-
-### 2. Stealth Scraper (`indeed_stealth_scraper.py`)
-**Optimized for: High-volume, high-speed background scraping.**
-- **How it works:** Mimics the Indeed Android App (Mobile App Bypass) in a headless environment.
-- **Speed:** Supports concurrent workers for detail extraction.
-
-### 3. Tri-Proxy Scraper (`tri_proxy_scraper.py`)
-**Optimized for: Maximum stealth and distributed load.**
-- **How it works:** Uses a three-proxy architecture. Proxy A handles pagination (Searcher), while Proxies B & C handle job detail extraction (Readers).
-- **Benefit:** Decouples search from reading to minimize IP footprint and avoid bans.
-
-### 4. Distributed Scraper (`indeed_distributed_scraper.py`)
-**Optimized for: Extreme scale and high-volume data collection.**
-- **How it works:** Spawns multiple parallel "Sessions", each with its own identity and cookies.
-- **Parallel Pagination:** Scrapes multiple pages (e.g., 1, 5, 10) simultaneously.
-
-### 5. Click-Based Scraper (`indeed_click_scraper.py`)
-**Optimized for: Desktop view mimicry.**
-- **How it works:** Mimics a desktop user by clicking job cards on the split-view layout.
+A professional, modular, and high-performance automation suite for Indeed. This project provides a unified interface for scraping job listings, managing a persistent job database, and automating "Easy Apply" applications using advanced stealth browser techniques.
 
 ---
 
-## 🛠️ Installation
+## 📁 Project Architecture
 
-1. **Clone and Install:**
-   ```bash
-   pip install -r requirements.txt
-   playwright install chromium
-   scrapling install
-   ```
+The project is organized into a clean `src/` directory to maximize code reuse and maintainability:
 
----
-
-## 💻 Usage
-
-### Tri-Proxy Scraper (Maximum Stealth)
-```bash
-python3 tri_proxy_scraper.py \
-  --query "Software Engineer" \
-  --location "Remote" \
-  --domain "in" \
-  --p-search "http://user:pass@proxy-a.com" \
-  --p-read-1 "http://user:pass@proxy-b.com" \
-  --p-read-2 "http://user:pass@proxy-c.com"
-```
-
-### Headed App Scraper (Best for Bypassing Login Walls)
-```bash
-# Scrape 20 jobs using the mobile app view in a visible browser
-python3 indeed_headed_app_scraper.py -q "Software Engineer" -l "Remote" -n 20
-```
-
-### Distributed Scraper (Maximum Performance)
-```bash
-# Scrape 20 pages using 4 parallel sessions (5 pages per session)
-python3 indeed_distributed_scraper.py -q "Software Engineer" -p 20 -s 4
-```
-
-### Stealth Scraper (High Speed Headless)
-```bash
-# Scrape 100 jobs using 10 parallel workers
-python3 indeed_stealth_scraper.py -q "Python Developer" -n 100 -w 10
+```text
+.
+├── main.py              # 🎛️ Unified CLI Entry Point
+├── src/
+│   ├── scraper/         
+│   │   └── engine.py    # 🕸️ Consolidated Scraper (Headed & Headless)
+│   ├── manager.py       # 🗄️ SQLite Database Manager
+│   ├── login.py         # 🔑 Session & Authentication Manager
+│   ├── applier.py       # ⚡ Auto-Application Automation
+│   └── __init__.py
+├── jobs_manager.db      # 📊 Persistent SQLite Database
+└── indeed_session/      # 🍪 Persistent Browser Profile (Cookies/State)
 ```
 
 ---
 
-## 📊 Data Extracted
-Both scrapers provide structured JSON data including:
-- **`title`**, **`company`**, **`location`**, **`posted_date`**, **`description`**, **`apply_url`**, **`url`**, **`jk`**.
+## 🛠️ Installation & Setup
+
+### 1. Clone and Install Dependencies
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
+
+### 2. Manual Login (Highly Recommended)
+Before running the scraper or applier, log in once manually to save your session. This helps bypass login walls and bot detection.
+```bash
+python main.py login
+```
 
 ---
 
-## 📂 Project Structure
-- `indeed_headed_app_scraper.py`: Hybrid tool using mobile app view in a headed browser (Best for login bypass).
-- `indeed_distributed_scraper.py`: Power tool for multi-session, proxy-enabled scraping.
-- `indeed_stealth_scraper.py`: Background tool for standard high-volume scraping.
-- `indeed_click_scraper.py`: Interactive tool for desktop-view extraction.
-- `SCRAPING_SUMMARY.md`: Technical documentation on bypass strategies.
+## 📖 CLI Reference & Parameters
 
-## ⚠️ Disclaimer
-This tool is for educational purposes only. Always respect Indeed's `robots.txt` and Terms of Service.
+The suite is controlled via `main.py` using three primary commands: `login`, `scrape`, and `apply`.
+
+### 1. `scrape` Command
+Extracts job listings from Indeed and stores them in the database.
+
+| Parameter | Short | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--query` | `-q` | `"Python Developer"` | The job title or keywords to search for. |
+| `--location` | `-l` | `"Remote"` | The geographic location or "Remote". |
+| `--limit` | `-n` | `10` | Maximum number of jobs to extract in this session. |
+| `--days` | | `None` | Filter for jobs posted within the last X days (e.g., `--days 7`). |
+| `--headed` | | `False` | Run with a visible browser window (Headless by default). |
+| `--db` | | `True` | Save extracted jobs to the SQLite database. |
+
+**Example:**
+```bash
+# Scrape 20 "Data Scientist" jobs from the last 7 days in Headless mode
+python main.py scrape -q "Data Scientist" -l "United States" -n 20 --days 7
+```
+
+### 2. `apply` Command
+Automates the application process for jobs marked as "Easy Apply" in your database.
+
+| Parameter | Short | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--limit` | `-n` | `5` | Maximum number of applications to attempt. |
+| `--headed` | | `False` | Run with a visible window (Recommended for monitoring automation). |
+
+**Example:**
+```bash
+# Attempt to apply to 10 jobs using a visible browser
+python main.py apply --limit 10 --headed
+```
+
+### 3. `login` Command
+Opens a persistent browser session for you to log in to Indeed. This session is reused by all other commands.
 
 ---
-*Maintained by Gemini CLI - May 2026*
+
+## 💡 Advanced Configuration
+
+### Customizing Application Answers
+You can pre-configure your default answers for common application questions (experience, salary, etc.) by editing the `AutoApplier` class in `src/applier.py`:
+
+```python
+# src/applier.py
+self.answers = {
+    "experience": "5",
+    "authorized": True,
+    "sponsorship": False,
+    "education": "Bachelor's Degree",
+    "salary": "100000",
+}
+```
+
+---
+
+## 📊 Database Schema
+The suite uses a `jobs_manager.db` SQLite database to track every job and prevent duplicate applications.
+- **Statuses:** `Pending`, `Applied`, `Skipped`.
+- **Easy Apply Tracking:** Automatically identifies and prioritizes Indeed Easy Apply listings.
+
+---
+
+## ✅ Validation Status
+The current version has been verified with:
+- [x] Multi-page pagination (scraped 20+ jobs across multiple pages).
+- [x] Database conflict resolution (skips duplicates automatically).
+- [x] Parameter validation (headed/headless, limit, days filter).
+- [x] Modular import integrity.
