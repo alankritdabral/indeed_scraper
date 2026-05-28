@@ -13,14 +13,19 @@ class IndeedScraper:
     Indeed Scraper Engine: Supports both Headed and Headless modes.
     Uses Playwright (StealthySession) to bypass blocks and extract job data.
     """
-    def __init__(self, domain="com", headless=True):
+    def __init__(self, domain="com", headless=True, session=None):
         self.domain = domain.strip('.')
         self.base_url = f"https://www.indeed.{self.domain}"
         self.headless = headless
         
-        # Initialize the stealthy browser session
-        self.session = StealthySession(headless=self.headless)
-        self.session.start()
+        # Initialize or reuse the stealthy browser session
+        if session:
+            self.session = session
+            self._session_owned = False
+        else:
+            self.session = StealthySession(headless=self.headless)
+            self.session.start()
+            self._session_owned = True
         
         # Standard mobile-app headers for the list view
         self.search_headers = {
@@ -83,8 +88,11 @@ class IndeedScraper:
                     href = el.get_attribute('href') or el.get_attribute('data-href')
                     if href:
                         apply_url = href if href.startswith('http') else f"{self.base_url}{href}"
-                        if 'applystart' in apply_url and 'jk=' in apply_url:
+                        # Only mark as easy apply if it's an indeed.com/applystart URL
+                        if 'indeed.com/applystart' in apply_url or 'indeed.com/apply' in apply_url:
                             is_easy_apply = True
+                        else:
+                            is_easy_apply = False # Overwrite if it's an external link
                         break
             
             job_info["apply_url"] = apply_url
@@ -94,9 +102,10 @@ class IndeedScraper:
             pass
         return job_info
 
-    def scrape(self, query, location, limit=10, days=None, use_db=False):
+    def scrape(self, query, location, limit=10, days=None, use_db=False, easy_apply_only=False):
         mode_str = "Headless" if self.headless else "Headed"
-        print(f"🚀 Reliable {mode_str} Scraping: '{query}' in '{location}'")
+        filter_str = " (Easy Apply only)" if easy_apply_only else ""
+        print(f"🚀 Reliable {mode_str} Scraping{filter_str}: '{query}' in '{location}'")
         
         db = None
         existing_jks = set()
@@ -116,39 +125,72 @@ class IndeedScraper:
         while True:
             start = page_num * 10
             date_filter = f"&fromage={days}" if days else ""
+            # Reverting to the mobile-app view URL which is often more consistent for Easy Apply tags
             url = f"{self.base_url}/m/jobs?q={query.replace(' ', '+')}&l={location.replace(' ', '+')}&start={start}&isapp=1&vjs=3{date_filter}"
             
             print(f"\n[Page {page_num+1}] Fetching search results...")
             try:
                 main_page.goto(url, wait_until="networkidle")
+                
                 try:
                     main_page.wait_for_selector('.job_seen_beacon, div[data-jk]', timeout=15000)
                 except:
-                    print("🏁 No more jobs found.")
+                    print("🏁 No more jobs found or blocked.")
                     break
 
-                job_cards = main_page.locator('.job_seen_beacon, div[data-jk]')
-                count = job_cards.count()
+                job_cards = main_page.locator('.job_seen_beacon, div[data-jk]').all()
                 
                 batch = []
-                for i in range(count):
+                for card in job_cards:
                     if limit and total_scraped >= limit: break
-                    card = job_cards.nth(i)
                     jk = card.get_attribute('data-jk') or card.locator('a[data-jk]').get_attribute('data-jk')
                     
                     if not jk or jk in existing_jks:
-                        if jk: print(f"  ⏭️ Skipping duplicate: {jk}")
                         continue
 
-                    title = card.locator('.jobTitle').first.inner_text().strip()
-                    company = card.locator('[data-testid="company-name"], .companyName').first.inner_text().strip()
+                    # Check for "Easily apply" label using multiple methods
+                    is_easy = False
                     
-                    location_el = card.locator('[data-testid="text-location"], .companyLocation, .location').first
-                    loc = location_el.inner_text().strip() if location_el.count() > 0 else "N/A"
+                    # 1. Check inner text (very reliable on mobile view)
+                    card_text = card.inner_text()
+                    if "Easily apply" in card_text or "Easily Apply" in card_text:
+                        is_easy = True
+                    
+                    # 2. Check for specific icons or containers
+                    if not is_easy:
+                        easy_indicators = [
+                            ".iaIcon", 
+                            "span:has-text('Easily apply')",
+                            ".jobCardShelfContainer",
+                            ".ia-EasilyApply",
+                            ".jobCardShelfItem"
+                        ]
+                        for indicator in easy_indicators:
+                            try:
+                                if card.locator(indicator).first.count() > 0:
+                                    is_easy = True
+                                    break
+                            except: continue
+
+                    if easy_apply_only and not is_easy:
+                        continue
+
+                    try:
+                        title_el = card.locator('.jobTitle').first
+                        title = title_el.inner_text().strip()
+                        
+                        company_el = card.locator('[data-testid="company-name"], .companyName').first
+                        company = company_el.inner_text().strip()
+                        
+                        location_el = card.locator('[data-testid="text-location"], .companyLocation, .location').first
+                        loc = location_el.inner_text().strip() if location_el.count() > 0 else "N/A"
+                    except:
+                        continue
                     
                     batch.append({
                         "jk": jk, "title": title, "company": company, "location": loc, 
-                        "url": f"{self.base_url}/viewjob?jk={jk}", "description": "N/A"
+                        "url": f"{self.base_url}/viewjob?jk={jk}", "description": "N/A",
+                        "is_easy_apply": is_easy
                     })
                     total_scraped += 1
 
@@ -160,17 +202,18 @@ class IndeedScraper:
                         if db: 
                             db.add_job(updated_job)
                             existing_jks.add(updated_job['jk'])
-                        status = "✅" if updated_job['description'] != "N/A" else "⚠️"
-                        print(f"  {status} [{i+1}/{len(batch)}] Extracted: {updated_job['title']} @ {updated_job['company']} ({updated_job['location']})")
+                        status = "✅" if updated_job['is_easy_apply'] else "❌"
+                        print(f"  {status} [{i+1}/{len(batch)}] Extracted: {updated_job['title']} @ {updated_job['company']}")
 
                 if limit and total_scraped >= limit: break
                 page_num += 1
-                time.sleep(random.uniform(5, 10))
+                time.sleep(random.uniform(2, 5))
             except Exception as e:
                 print(f"❌ Error on page {page_num+1}: {e}")
                 break
 
-        self.session.close()
+        if self._session_owned:
+            self.session.close()
 
     def save_data(self, filename="jobs_extracted.json"):
         with open(filename, "w", encoding="utf-8") as f:

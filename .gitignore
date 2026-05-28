@@ -24,3 +24,7 @@ scraper_test.log
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local database and stuck pages
+jobs_manager.db
+stuck_pages/

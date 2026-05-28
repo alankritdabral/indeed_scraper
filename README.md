@@ -55,11 +55,12 @@ Extracts job listings from Indeed and stores them in the database.
 | `--days` | | `None` | Filter for jobs posted within the last X days (e.g., `--days 7`). |
 | `--headed` | | `False` | Run with a visible browser window (Headless by default). |
 | `--db` | | `True` | Save extracted jobs to the SQLite database. |
+| `--easy-apply`| | `False` | Only scrape jobs that have the "Easily apply" label. |
 
 **Example:**
 ```bash
-# Scrape 20 "Data Scientist" jobs from the last 7 days in Headless mode
-python main.py scrape -q "Data Scientist" -l "United States" -n 20 --days 7
+# Scrape 20 "Data Scientist" jobs with "Easy Apply" filter in Headed mode
+python main.py scrape -q "Data Scientist" -l "United States" -n 20 --easy-apply --headed
 ```
 
 ### 2. `apply` Command
@@ -68,7 +69,7 @@ Automates the application process for jobs marked as "Easy Apply" in your databa
 | Parameter | Short | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `--limit` | `-n` | `5` | Maximum number of applications to attempt. |
-| `--headed` | | `False` | Run with a visible window (Recommended for monitoring automation). |
+| `--headed` | | `False` | Run with a visible window (Required for CAPTCHA solving). |
 
 **Example:**
 ```bash
@@ -76,8 +77,43 @@ Automates the application process for jobs marked as "Easy Apply" in your databa
 python main.py apply --limit 10 --headed
 ```
 
-### 3. `login` Command
+### 3. `continuous` Command
+Loops scraping and applying phases indefinitely.
+
+| Parameter | Short | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--query` | `-q` | `"Python Developer"` | Search keywords for the scraping phase. |
+| `--location` | `-l` | `"Remote"` | Location for the scraping phase. |
+| `--limit` | `-n` | `10` | Batch size for each scrape/apply cycle. |
+| `--headed` | | `False` | Run with a visible window (Satisfies "don't close browser" rule). |
+| `--easy-apply`| | `False` | Filter for "Easy Apply" jobs during the scraping phase. |
+
+**Example:**
+```bash
+# Run indefinitely with session persistence and visible browser
+python main.py continuous -q "Python Developer" -l "India" --easy-apply --headed
+```
+
+### 4. `login` Command
+
 Opens a persistent browser session for you to log in to Indeed. This session is reused by all other commands.
+
+---
+
+## 🤖 Advanced Automation Features
+
+### 1. Manual CAPTCHA Handling
+The suite includes a smart pause mechanism for CAPTCHAs. If an Indeed "Easy Apply" form triggers a bot challenge:
+- The terminal will display: `🚨 ACTION REQUIRED: Please solve the CAPTCHA in the browser window.`
+- The script **pauses** all automation.
+- You solve the CAPTCHA manually in the headed browser.
+- Press **ENTER** in the terminal to resume automation.
+
+### 2. Session & Tab Persistence
+To satisfy the "don't close the browser" rule:
+- **Shared Session:** In `continuous` mode, the same browser session is shared between scraping and applying.
+- **Persistent Tabs:** During the application phase, the script opens a new tab for every job and **keeps them open** after submission for your final review.
+- **Headless Compatibility:** All features except manual CAPTCHA solving work in headless mode.
 
 ---
 
@@ -108,7 +144,9 @@ The suite uses a `jobs_manager.db` SQLite database to track every job and preven
 
 ## ✅ Validation Status
 The current version has been verified with:
-- [x] Multi-page pagination (scraped 20+ jobs across multiple pages).
-- [x] Database conflict resolution (skips duplicates automatically).
-- [x] Parameter validation (headed/headless, limit, days filter).
-- [x] Modular import integrity.
+- [x] **Session Persistence:** Browser stays open across scraping/applying in continuous mode.
+- [x] **Tab Management:** Opens and keeps tabs for each job application.
+- [x] **Manual CAPTCHA:** Successfully pauses and resumes for bot challenges.
+- [x] **Easy Apply Filter:** Scraper accurately filters for "Easily apply" jobs.
+- [x] **Pagination:** Multi-page scraping and duplicate conflict resolution.
+- [x] **Headless/Headed:** Seamless transition between modes.

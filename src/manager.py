@@ -64,15 +64,18 @@ class JobDatabase:
                 cursor.execute("SELECT * FROM jobs WHERE status = 'Pending' ORDER BY scraped_date DESC")
             return [dict(row) for row in cursor.fetchall()]
 
-    def mark_as_applied(self, jk, notes=""):
+    def update_job_status(self, jk, status='Applied', notes=""):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 UPDATE jobs 
-                SET status = 'Applied', applied_date = ?, notes = ?
+                SET status = ?, applied_date = ?, notes = ?
                 WHERE jk = ?
-            ''', (datetime.now().isoformat(), notes, jk))
+            ''', (status, datetime.now().isoformat(), notes, jk))
             conn.commit()
+
+    def mark_as_applied(self, jk, notes=""):
+        self.update_job_status(jk, status='Applied', notes=notes)
 
 if __name__ == "__main__":
     db = JobDatabase()
